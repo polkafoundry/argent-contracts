@@ -18,7 +18,7 @@ const BaseWallet = artifacts.require("BaseWallet");
 const Registry = artifacts.require("ModuleRegistry");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModuleTest");
+// // const ArgentModule = artifacts.require("ArgentModuleTest");
 const DappRegistry = artifacts.require("DappRegistry");
 const PriceOracle = artifacts.require("TestSimpleOracle");
 const ERC20 = artifacts.require("TestERC20");
@@ -79,7 +79,8 @@ contract("ArgentModule - Relayer", (accounts) => {
     transferStorage = await TransferStorage.new();
     dappRegistry = await DappRegistry.new(0);
 
-    module = await ArgentModule.new(
+    module = await utils.deployArgentTestDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,

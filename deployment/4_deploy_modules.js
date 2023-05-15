@@ -4,7 +4,7 @@ global.artifacts = artifacts;
 
 const childProcess = require("child_process");
 
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const ModuleRegistry = artifacts.require("ModuleRegistry");
 const MultiSig = artifacts.require("MultiSigWallet");
 
@@ -30,7 +30,8 @@ async function main() {
   const wrappers = [];
 
   // Deploy ArgentModule
-  const ArgentModuleWrapper = await ArgentModule.new(
+  const ArgentModuleWrapper = await utils.deployArgentDiamond(
+    config.contracts.MultiSigWallet,
     config.contracts.ModuleRegistry,
     config.modules.GuardianStorage,
     config.modules.TransferStorage,

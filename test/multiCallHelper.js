@@ -4,6 +4,7 @@ const ethers = require("ethers");
 const chai = require("chai");
 const BN = require("bn.js");
 const bnChai = require("bn-chai");
+const utils = require("../utils/utilities.js");
 
 const { assert } = chai;
 chai.use(bnChai(BN));
@@ -13,7 +14,7 @@ const BaseWallet = artifacts.require("BaseWallet");
 const Registry = artifacts.require("ModuleRegistry");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const DappRegistry = artifacts.require("DappRegistry");
 
 // UniswapV2
@@ -76,7 +77,8 @@ contract("MultiCallHelper", (accounts) => {
     dappRegistry = await DappRegistry.new(0);
     guardianStorage = await GuardianStorage.new();
     transferStorage = await TransferStorage.new();
-    module = await ArgentModule.new(
+    module = await utils.deployArgentDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,

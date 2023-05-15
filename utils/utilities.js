@@ -11,6 +11,40 @@ const ETH_TOKEN = ethers.constants.AddressZero;
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 const ZERO_BYTES = "0x";
 
+const ArgentModule = artifacts.require("ArgentModule");
+const Diamond = artifacts.require("Diamond");
+const DiamondInit = artifacts.require("DiamondInit");
+const DiamondCutFacet = artifacts.require("DiamondCutFacet");
+const DiamondLoupeFacet = artifacts.require("DiamondLoupeFacet");
+const OwnershipFacet = artifacts.require("OwnershipFacet");
+const ArgentModuleFacet = artifacts.require("ArgentModuleFacet");
+const RelayerManagerFacet = artifacts.require("RelayerManagerFacet");
+const SecurityManagerFacet = artifacts.require("SecurityManagerFacet");
+const TransactionManagerFacet = artifacts.require("TransactionManagerFacet");
+
+const FACETS = [
+  { name: "DiamondCutFacet", artifact: DiamondCutFacet },
+  { name: "DiamondLoupeFacet", artifact: DiamondLoupeFacet },
+  { name: "OwnershipFacet", artifact: OwnershipFacet },
+  { name: "ArgentModuleFacet", artifact: ArgentModuleFacet },
+  { name: "RelayerManagerFacet", artifact: RelayerManagerFacet },
+  { name: "SecurityManagerFacet", artifact: SecurityManagerFacet },
+  { name: "TransactionManagerFacet", artifact: TransactionManagerFacet }
+];
+
+const DiamondTestInit = artifacts.require("DiamondTestInit");
+const TEST_FACETS = [
+  { name: "DiamondCutFacet", artifact: DiamondCutFacet },
+  { name: "DiamondLoupeFacet", artifact: DiamondLoupeFacet },
+  { name: "OwnershipFacet", artifact: OwnershipFacet },
+  { name: "ArgentModuleFacet", artifact: ArgentModuleFacet },
+  { name: "RelayerManagerTestFacet", artifact: artifacts.require("RelayerManagerTestFacet") },
+  { name: "SecurityManagerFacet", artifact: SecurityManagerFacet },
+  { name: "TransactionManagerFacet", artifact: TransactionManagerFacet }
+];
+
+const { getSelectors, FacetCutAction } = require("./diamond.js");
+
 const utilities = {
   ETH_TOKEN,
   ZERO_ADDRESS,
@@ -331,7 +365,105 @@ const utilities = {
     return result;
   },
 
-  usdcToWei: (amount) => new BN(amount).mul(new BN(1e6)).toString()
+  usdcToWei: (amount) => new BN(amount).mul(new BN(1e6)).toString(),
+
+  deployArgentDiamond: async (
+    owner,
+    registry,
+    guardianStorage,
+    userWhitelist,
+    authoriser,
+    uniswapRouter,
+    securityPeriod,
+    securityWindow,
+    recoveryPeriod,
+    lockPeriod
+  ) => {
+    const DiamondInitWrapper = await DiamondInit.new();
+    // console.log("DiamondInit deployed at ", DiamondInitWrapper.address);
+    // console.log("");
+    // console.log("Deploying facets");
+    const facetCuts = [];
+    for (const facet of FACETS) {
+      const facetWrapper = await facet.artifact.new();
+      // console.log(`${facet.name} deployed at ${facetWrapper.address}`);
+      facetCuts.push({
+        facetAddress: facetWrapper.address,
+        action: FacetCutAction.Add,
+        functionSelectors: getSelectors(facetWrapper)
+      });
+    }
+
+    const functionCall = DiamondInitWrapper.contract.methods.init(
+      registry,
+      guardianStorage,
+      userWhitelist,
+      authoriser,
+      uniswapRouter,
+      securityPeriod,
+      securityWindow,
+      recoveryPeriod,
+      lockPeriod
+    ).encodeABI();
+
+    const diamondArgs = [
+      owner,
+      DiamondInitWrapper.address,
+      functionCall
+    ];
+
+    const DiamondWrapper = await Diamond.new(facetCuts, diamondArgs);
+    return ArgentModule.at(DiamondWrapper.address);
+  },
+
+  deployArgentTestDiamond: async (
+    owner,
+    registry,
+    guardianStorage,
+    userWhitelist,
+    authoriser,
+    uniswapRouter,
+    securityPeriod,
+    securityWindow,
+    recoveryPeriod,
+    lockPeriod
+  ) => {
+    const DiamondInitWrapper = await DiamondTestInit.new();
+    // console.log("DiamondInit deployed at ", DiamondInitWrapper.address);
+    // console.log("");
+    // console.log("Deploying facets");
+    const facetCuts = [];
+    for (const facet of TEST_FACETS) {
+      const facetWrapper = await facet.artifact.new();
+      // console.log(`${facet.name} deployed at ${facetWrapper.address}`);
+      facetCuts.push({
+        facetAddress: facetWrapper.address,
+        action: FacetCutAction.Add,
+        functionSelectors: getSelectors(facetWrapper)
+      });
+    }
+
+    const functionCall = DiamondInitWrapper.contract.methods.init(
+      registry,
+      guardianStorage,
+      userWhitelist,
+      authoriser,
+      uniswapRouter,
+      securityPeriod,
+      securityWindow,
+      recoveryPeriod,
+      lockPeriod
+    ).encodeABI();
+
+    const diamondArgs = [
+      owner,
+      DiamondInitWrapper.address,
+      functionCall
+    ];
+
+    const DiamondWrapper = await Diamond.new(facetCuts, diamondArgs);
+    return ArgentModule.at(DiamondWrapper.address);
+  }
 };
 
 module.exports = utilities;

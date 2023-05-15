@@ -12,7 +12,11 @@ module.exports = {
         optimizer: {
           enabled: true,
           runs: 300,
+          details: {
+            yul: false
+          },
         },
+        viaIR: true
       },
     },
   },

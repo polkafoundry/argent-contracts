@@ -7,7 +7,7 @@ const ERC20 = artifacts.require("TestERC20");
 const NonCompliantERC20 = artifacts.require("NonCompliantERC20");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const DappRegistry = artifacts.require("DappRegistry");
 const UniswapV2Router01 = artifacts.require("DummyUniV2Router");
 const WalletFactory = artifacts.require("WalletFactory");
@@ -45,7 +45,8 @@ contract("BaseModule", (accounts) => {
 
     const uniswapRouter = await UniswapV2Router01.new();
 
-    module = await ArgentModule.new(
+    module = await utils.deployArgentDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,

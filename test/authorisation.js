@@ -12,7 +12,7 @@ const BaseWallet = artifacts.require("BaseWallet");
 const Registry = artifacts.require("ModuleRegistry");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const DappRegistry = artifacts.require("DappRegistry");
 const ERC20 = artifacts.require("TestERC20");
 const TestContract = artifacts.require("TestContract");
@@ -93,7 +93,8 @@ contract("Authorisation", (accounts) => {
     await dappRegistry.addDapp(0, recipient, ZERO_ADDRESS);
     await dappRegistry.addDapp(0, relayer, ZERO_ADDRESS);
     await utils.increaseTime(SECURITY_PERIOD + 1);
-    module = await ArgentModule.new(
+    module = await utils.deployArgentDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,

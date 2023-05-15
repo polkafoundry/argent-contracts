@@ -13,7 +13,7 @@ const BaseWallet = artifacts.require("BaseWallet");
 const Registry = artifacts.require("ModuleRegistry");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const DappRegistry = artifacts.require("DappRegistry");
 const Upgrader = artifacts.require("SimpleUpgrader");
 const UniswapV2Router01 = artifacts.require("DummyUniV2Router");
@@ -60,7 +60,8 @@ contract("TransactionManager", (accounts) => {
 
     const uniswapRouter = await UniswapV2Router01.new();
 
-    module = await ArgentModule.new(
+    module = await utils.deployArgentDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,
@@ -71,7 +72,8 @@ contract("TransactionManager", (accounts) => {
       RECOVERY_PERIOD,
       LOCK_PERIOD);
 
-    newModule = await ArgentModule.new(
+    newModule = await utils.deployArgentDiamond(
+      infrastructure,
       registry.address,
       guardianStorage.address,
       transferStorage.address,

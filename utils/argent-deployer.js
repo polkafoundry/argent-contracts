@@ -12,7 +12,7 @@ const BaseWallet = artifacts.require("BaseWallet");
 const ModuleRegistry = artifacts.require("ModuleRegistry");
 const TransferStorage = artifacts.require("TransferStorage");
 const GuardianStorage = artifacts.require("GuardianStorage");
-const ArgentModule = artifacts.require("ArgentModule");
+// const ArgentModule = artifacts.require("ArgentModule");
 const DappRegistry = artifacts.require("DappRegistry");
 const ERC20 = artifacts.require("TestERC20");
 const WETH9 = artifacts.require("WETH9");
@@ -64,7 +64,8 @@ module.exports.deployArgent = async (accountsArray, options = {}) => {
   const transferStorage = await TransferStorage.new();
   const dappRegistry = await DappRegistry.new(0);
   const uniswapRouter = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
-  const module = await ArgentModule.new(
+  const module = await utils.deployArgentDiamond(
+    infrastructure,
     moduleRegistry.address,
     guardianStorage.address,
     transferStorage.address,
