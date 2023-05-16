@@ -48,6 +48,7 @@ contract("GuardianManager", (accounts) => {
   let transferStorage;
   let module;
   let wallet;
+  let noGuardianWallet;
   let walletImplementation;
   let factory;
   let dappRegistry;
@@ -93,6 +94,11 @@ contract("GuardianManager", (accounts) => {
     wallet = await BaseWallet.at(walletAddress);
 
     await wallet.send(new BN("1000000000000000000"));
+
+    const noGuardianWalletAddress = await utils.createWallet(factory.address, owner, [module.address], ZERO_ADDRESS);
+    noGuardianWallet = await BaseWallet.at(noGuardianWalletAddress);
+
+    await noGuardianWallet.send(new BN("1000000000000000000"));
   });
 
   describe("Adding Guardians", () => {
@@ -122,6 +128,16 @@ contract("GuardianManager", (accounts) => {
         assert.equal(guardian1, guardians[0], "should return first guardian address");
         assert.equal(guardian2, guardians[1], "should return second guardian address");
         assert.equal(guardian3, guardians[2], "should return third guardian address");
+      });
+
+      it("should let the owner add EOA Guardians immediately when the wallet has no guardian", async () => {
+        // noGuardianWallet is initialized with zero address guardian, the security feature is disabled by default.
+        await manager.relay(module, "enableSecurity", [noGuardianWallet.address], noGuardianWallet, [owner]);
+        await module.addGuardian(noGuardianWallet.address, guardian1, { from: owner });
+        const count = (await guardianStorage.guardianCount(noGuardianWallet.address)).toNumber();
+        const active = await module.isGuardian(noGuardianWallet.address, guardian1);
+        assert.isTrue(active, "first guardian should be active immediately");
+        assert.equal(count, 1, "first guardian should be active immediately");
       });
 
       it("should not let the owner add EOA Guardians after two security periods (blockchain transaction)", async () => {

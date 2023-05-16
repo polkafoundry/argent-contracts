@@ -62,7 +62,9 @@ contract RelayerManagerFacet is BaseFacet {
             methodId == SecurityManagerFacet.addGuardian.selector ||
             methodId == SecurityManagerFacet.revokeGuardian.selector ||
             methodId == SecurityManagerFacet.cancelGuardianAddition.selector ||
-            methodId == SecurityManagerFacet.cancelGuardianRevokation.selector)
+            methodId == SecurityManagerFacet.cancelGuardianRevokation.selector ||
+            methodId == SecurityManagerFacet.cancelSecurityDisabling.selector ||
+            methodId == SecurityManagerFacet.enableSecurity.selector)
         {
             // owner
             return (1, LibBaseModule.OwnerSignature.Required);
@@ -83,7 +85,8 @@ contract RelayerManagerFacet is BaseFacet {
         }
         if (methodId == TransactionManagerFacet.multiCallWithGuardians.selector ||
             methodId == TransactionManagerFacet.multiCallWithGuardiansAndStartSession.selector ||
-            methodId == SecurityManagerFacet.transferOwnership.selector)
+            methodId == SecurityManagerFacet.transferOwnership.selector ||
+            methodId == SecurityManagerFacet.disableSecurity.selector)
         {
             // owner + majority of guardians
             uint majorityGuardians = _majorityOfGuardians(_wallet);
@@ -92,7 +95,8 @@ contract RelayerManagerFacet is BaseFacet {
         }
         if (methodId == SecurityManagerFacet.finalizeRecovery.selector ||
             methodId == SecurityManagerFacet.confirmGuardianAddition.selector ||
-            methodId == SecurityManagerFacet.confirmGuardianRevokation.selector)
+            methodId == SecurityManagerFacet.confirmGuardianRevokation.selector ||
+            methodId == SecurityManagerFacet.confirmSecurityDisabling.selector)
         {
             // anyone
             return (0, LibBaseModule.OwnerSignature.Anyone);
@@ -360,7 +364,7 @@ contract RelayerManagerFacet is BaseFacet {
     * @param _signatures The signatures as a concatenated bytes array.
     * @return A boolean indicating whether the signature is valid.
     */
-    function validateSession(address _wallet, bytes32 _signHash, bytes calldata _signatures) internal view returns (bool) { 
+    function validateSession(address _wallet, bytes32 _signHash, bytes calldata _signatures) internal view returns (bool) {
         LibBaseModule.BaseModuleStorage storage ds = LibBaseModule.diamondStorage();
         LibBaseModule.Session memory session = ds.sessions[_wallet];
         address signer = Utils.recoverSigner(_signHash, _signatures, 0);
@@ -418,7 +422,7 @@ contract RelayerManagerFacet is BaseFacet {
                     require(abi.decode(transferSuccessBytes, (bool)), "RM: Refund transfer failed");
                 }
             }
-            emit Refund(_wallet, refundAddress, _refundToken, refundAmount);    
+            emit Refund(_wallet, refundAddress, _refundToken, refundAmount);
         }
     }
 
@@ -454,7 +458,7 @@ contract RelayerManagerFacet is BaseFacet {
         require(wethReserve != 0 && tokenReserve != 0, "SO: no liquidity");
     }
 
-    function getPairForSorted(address tokenA, address tokenB) internal virtual view returns (address pair) {    
+    function getPairForSorted(address tokenA, address tokenB) internal virtual view returns (address pair) {
         LibRelayerManager.RelayerManagerStorage storage ds = LibRelayerManager.diamondStorage();
         pair = address(uint160(uint256(keccak256(abi.encodePacked(
                 hex'ff',

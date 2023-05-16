@@ -174,8 +174,11 @@ contract WalletFactory is Managed {
         // initialise the wallet with the owner and the extended modules
         _wallet.init(_owner, extendedModules);
 
-        // add the first guardian
-        IGuardianStorage(guardianStorage).addGuardian(address(_wallet), _guardian);
+        if (_guardian != address(0)) {
+            // add the first guardian
+            IGuardianStorage(guardianStorage).addGuardian(address(_wallet), _guardian);
+            IGuardianStorage(guardianStorage).setSecurityEnabled(address(_wallet), true);
+        }
     }
 
     /**
@@ -201,7 +204,7 @@ contract WalletFactory is Managed {
         require(_owner != address(0), "WF: empty owner address");
         require(_owner != _guardian, "WF: owner cannot be guardian");
         require(_modules.length > 0, "WF: empty modules");
-        require(_guardian != (address(0)), "WF: empty guardian");        
+        // require(_guardian != (address(0)), "WF: empty guardian");        
     }
 
     /**

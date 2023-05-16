@@ -40,7 +40,7 @@ contract ArgentModuleFacet is BaseFacet, IModule {
     /**
     * @inheritdoc IModule
     */
-    function addModule(address _wallet, address _module) external override onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function addModule(address _wallet, address _module) external override onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(LibBaseModule._registry().isRegisteredModule(_module), "AM: module is not registered");
         IWallet(_wallet).authoriseModule(_module, true);
     }

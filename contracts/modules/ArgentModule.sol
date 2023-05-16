@@ -47,7 +47,7 @@ contract ArgentModule is BaseModule, RelayerManager, SecurityManager, Transactio
         TransactionManager(_securityPeriod)
         RelayerManager(_uniswapRouter)
     {
-        
+
     }
 
     /**
@@ -60,11 +60,11 @@ contract ArgentModule is BaseModule, RelayerManager, SecurityManager, Transactio
     /**
     * @inheritdoc IModule
     */
-    function addModule(address _wallet, address _module) external override onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function addModule(address _wallet, address _module) external override onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(registry.isRegisteredModule(_module), "AM: module is not registered");
         IWallet(_wallet).authoriseModule(_module, true);
     }
-    
+
     /**
      * @inheritdoc RelayerManager
      */
@@ -80,7 +80,9 @@ contract ArgentModule is BaseModule, RelayerManager, SecurityManager, Transactio
             methodId == SecurityManager.addGuardian.selector ||
             methodId == SecurityManager.revokeGuardian.selector ||
             methodId == SecurityManager.cancelGuardianAddition.selector ||
-            methodId == SecurityManager.cancelGuardianRevokation.selector)
+            methodId == SecurityManager.cancelGuardianRevokation.selector ||
+            methodId == SecurityManager.cancelSecurityDisabling.selector ||
+            methodId == SecurityManager.enableSecurity.selector)
         {
             // owner
             return (1, OwnerSignature.Required);
@@ -101,7 +103,8 @@ contract ArgentModule is BaseModule, RelayerManager, SecurityManager, Transactio
         }
         if (methodId == TransactionManager.multiCallWithGuardians.selector ||
             methodId == TransactionManager.multiCallWithGuardiansAndStartSession.selector ||
-            methodId == SecurityManager.transferOwnership.selector)
+            methodId == SecurityManager.transferOwnership.selector ||
+            methodId == SecurityManager.disableSecurity.selector)
         {
             // owner + majority of guardians
             uint majorityGuardians = _majorityOfGuardians(_wallet);
@@ -110,7 +113,8 @@ contract ArgentModule is BaseModule, RelayerManager, SecurityManager, Transactio
         }
         if (methodId == SecurityManager.finalizeRecovery.selector ||
             methodId == SecurityManager.confirmGuardianAddition.selector ||
-            methodId == SecurityManager.confirmGuardianRevokation.selector)
+            methodId == SecurityManager.confirmGuardianRevokation.selector ||
+            methodId == SecurityManager.confirmSecurityDisabling.selector)
         {
             // anyone
             return (0, OwnerSignature.Anyone);

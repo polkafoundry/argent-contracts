@@ -69,6 +69,10 @@ abstract contract SecurityManager is BaseModule {
     event GuardianRevokationCancelled(address indexed wallet, address indexed guardian);
     event GuardianAdded(address indexed wallet, address indexed guardian);
     event GuardianRevoked(address indexed wallet, address indexed guardian);
+    event WalletSecurityEnabled(address indexed wallet);
+    event WalletSecurityDisablingRequested(address indexed wallet, uint256 executeAfter);
+    event WalletSecurityDisablingCancelled(address indexed wallet);
+    event WalletSecurityDisabled(address indexed wallet);
     // *************** Modifiers ************************ //
 
     /**
@@ -124,7 +128,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _recovery The address to which ownership should be transferred.
      */
-    function executeRecovery(address _wallet, address _recovery) external onlySelf() notWhenRecovery(_wallet) {
+    function executeRecovery(address _wallet, address _recovery) external onlySelf() notWhenRecovery(_wallet) onlyWhenSecurityEnabled(_wallet) {
         validateNewOwner(_wallet, _recovery);
         uint64 executeAfter = uint64(block.timestamp + recoveryPeriod);
         recoveryConfigs[_wallet] = RecoveryConfig(_recovery, executeAfter, uint32(guardianStorage.guardianCount(_wallet)));
@@ -137,7 +141,7 @@ abstract contract SecurityManager is BaseModule {
      * The method is public and callable by anyone to enable orchestration.
      * @param _wallet The target wallet.
      */
-    function finalizeRecovery(address _wallet) external onlyWhenRecovery(_wallet) {
+    function finalizeRecovery(address _wallet) external onlyWhenRecovery(_wallet) onlyWhenSecurityEnabled(_wallet) {
         RecoveryConfig storage config = recoveryConfigs[_wallet];
         require(uint64(block.timestamp) > config.executeAfter, "SM: ongoing recovery period");
         address recoveryOwner = config.recovery;
@@ -156,7 +160,7 @@ abstract contract SecurityManager is BaseModule {
      * Must be confirmed by N guardians, where N = ceil(Nb Guardian at executeRecovery + 1) / 2) - 1.
      * @param _wallet The target wallet.
      */
-    function cancelRecovery(address _wallet) external onlySelf() onlyWhenRecovery(_wallet) {
+    function cancelRecovery(address _wallet) external onlySelf() onlyWhenRecovery(_wallet) onlyWhenSecurityEnabled(_wallet) {
         address recoveryOwner = recoveryConfigs[_wallet].recovery;
         delete recoveryConfigs[_wallet];
         _setLock(_wallet, 0, bytes4(0));
@@ -191,7 +195,7 @@ abstract contract SecurityManager is BaseModule {
      * @notice Lets a guardian lock a wallet.
      * @param _wallet The target wallet.
      */
-    function lock(address _wallet) external onlyGuardianOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function lock(address _wallet) external onlyGuardianOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         _setLock(_wallet, block.timestamp + lockPeriod, SecurityManager.lock.selector);
         emit Locked(_wallet, uint64(block.timestamp + lockPeriod));
     }
@@ -200,7 +204,7 @@ abstract contract SecurityManager is BaseModule {
      * @notice Lets a guardian unlock a locked wallet.
      * @param _wallet The target wallet.
      */
-    function unlock(address _wallet) external onlyGuardianOrSelf(_wallet) onlyWhenLocked(_wallet) {
+    function unlock(address _wallet) external onlyGuardianOrSelf(_wallet) onlyWhenLocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(locks[_wallet].locker == SecurityManager.lock.selector, "SM: cannot unlock");
         _setLock(_wallet, 0, bytes4(0));
         emit Unlocked(_wallet);
@@ -233,7 +237,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian to add.
      */
-    function addGuardian(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function addGuardian(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(!_isOwner(_wallet, _guardian), "SM: guardian cannot be owner");
         require(!isGuardian(_wallet, _guardian), "SM: duplicate guardian");
         // Guardians must either be an EOA or a contract with an owner()
@@ -241,6 +245,12 @@ abstract contract SecurityManager is BaseModule {
         // Note that this test is not meant to be strict and can be bypassed by custom malicious contracts.
         (bool success,) = _guardian.call{gas: 25000}(abi.encodeWithSignature("owner()"));
         require(success, "SM: must be EOA/Argent wallet");
+
+        if (guardianStorage.guardianCount(_wallet) == 0) {
+            guardianStorage.addGuardian(_wallet, _guardian);
+            emit GuardianAdded(_wallet, _guardian);
+            return;
+        }
 
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "addition"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
@@ -257,7 +267,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian.
      */
-    function confirmGuardianAddition(address _wallet, address _guardian) external onlyWhenUnlocked(_wallet) {
+    function confirmGuardianAddition(address _wallet, address _guardian) external onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "addition"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
         require(config.pending[id] > 0, "SM: unknown pending addition");
@@ -273,7 +283,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian.
      */
-    function cancelGuardianAddition(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function cancelGuardianAddition(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "addition"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
         require(config.pending[id] > 0, "SM: unknown pending addition");
@@ -287,7 +297,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian to revoke.
      */
-    function revokeGuardian(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) {
+    function revokeGuardian(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(isGuardian(_wallet, _guardian), "SM: must be existing guardian");
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "revokation"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
@@ -304,7 +314,7 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian.
      */
-    function confirmGuardianRevokation(address _wallet, address _guardian) external {
+    function confirmGuardianRevokation(address _wallet, address _guardian) external onlyWhenSecurityEnabled(_wallet) {
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "revokation"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
         require(config.pending[id] > 0, "SM: unknown pending revoke");
@@ -320,12 +330,51 @@ abstract contract SecurityManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _guardian The guardian.
      */
-    function cancelGuardianRevokation(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function cancelGuardianRevokation(address _wallet, address _guardian) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         bytes32 id = keccak256(abi.encodePacked(_wallet, _guardian, "revokation"));
         GuardianManagerConfig storage config = guardianConfigs[_wallet];
         require(config.pending[id] > 0, "SM: unknown pending revoke");
         delete config.pending[id];
         emit GuardianRevokationCancelled(_wallet, _guardian);
+    }
+
+    function enableSecurity(address _wallet) external onlyWalletOwnerOrSelf(_wallet) notWhenSecurityEnabled(_wallet) {
+        guardianStorage.setSecurityEnabled(_wallet, true);
+        emit WalletSecurityEnabled(_wallet);
+    }
+
+    function disableSecurity(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
+        if (guardianStorage.guardianCount(_wallet) == 0) {
+            guardianStorage.setSecurityEnabled(_wallet, false);
+            emit WalletSecurityDisabled(_wallet);
+            return;
+        }
+        bytes32 id = keccak256(abi.encodePacked(_wallet, "disableSecurity"));
+        GuardianManagerConfig storage config = guardianConfigs[_wallet];
+        require(
+            config.pending[id] == 0 || block.timestamp > config.pending[id] + securityWindow,
+            "SM: duplicate disabling request");
+        config.pending[id] = block.timestamp + securityPeriod;
+        emit WalletSecurityDisablingRequested(_wallet, block.timestamp + securityPeriod);
+    }
+
+    function confirmSecurityDisabling(address _wallet) external onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
+        bytes32 id = keccak256(abi.encodePacked(_wallet, "disableSecurity"));
+        GuardianManagerConfig storage config = guardianConfigs[_wallet];
+        require(config.pending[id] > 0, "SM: unknown disabling request");
+        require(config.pending[id] < block.timestamp, "SM: pending not over");
+        require(block.timestamp < config.pending[id] + securityWindow, "SM: pending expired");
+        guardianStorage.setSecurityEnabled(_wallet, false);
+        emit WalletSecurityDisabled(_wallet);
+        delete config.pending[id];
+    }
+
+    function cancelSecurityDisabling(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenSecurityEnabled(_wallet) {
+        bytes32 id = keccak256(abi.encodePacked(_wallet, "disableSecurity"));
+        GuardianManagerConfig storage config = guardianConfigs[_wallet];
+        require(config.pending[id] > 0, "SM: unknown disabling request");
+        delete config.pending[id];
+        emit WalletSecurityDisablingCancelled(_wallet);
     }
 
     /**

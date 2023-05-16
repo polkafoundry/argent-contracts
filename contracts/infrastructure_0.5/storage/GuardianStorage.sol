@@ -37,6 +37,8 @@ contract GuardianStorage is IGuardianStorage, Storage {
         uint256 lock;
         // the module that set the last lock
         address locker;
+        // indicate that security features are enabled for the address
+        bool securityEnabled;
     }
 
     struct GuardianInfo {
@@ -147,5 +149,14 @@ contract GuardianStorage is IGuardianStorage, Storage {
      */
     function getLocker(address _wallet) external view returns (address) {
         return configs[_wallet].locker;
+    }
+
+    function isSecurityEnabled(address _wallet) external view returns (bool) {
+        return configs[_wallet].securityEnabled;
+    }
+
+    function setSecurityEnabled(address _wallet, bool enabled) external onlyModule(_wallet) {
+        GuardianStorageConfig storage config = configs[_wallet];
+        config.securityEnabled = enabled;
     }
 }

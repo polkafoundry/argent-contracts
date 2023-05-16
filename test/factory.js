@@ -150,6 +150,29 @@ contract("WalletFactory", (accounts) => {
       // we test that the wallet has the correct guardian
       const success = await guardianStorage.isGuardian(walletAddr, guardian);
       assert.equal(success, true, "should have the correct guardian");
+
+      const isSecurityEnabled = await guardianStorage.isSecurityEnabled(walletAddr);
+      assert.equal(isSecurityEnabled, true, "security should be enabled when guardian is not zero");
+    });
+
+    it("should let a manager create a wallet with the correct (owner, modules) properties and zero address guardian", async () => {
+      const salt = utils.generateSaltValue();
+      // we get the future address
+      const futureAddr = await factory.getAddressForCounterfactualWallet(owner, modules, ZERO_ADDRESS, salt);
+
+      const managerSig = "0x";
+
+      // we create the wallet
+      const tx = await factory.createCounterfactualWallet(
+        owner, modules, ZERO_ADDRESS, salt, 0, ZERO_ADDRESS, ZERO_BYTES, managerSig, { from: infrastructure });
+
+      const event = await utils.getEvent(tx.receipt, factory, "WalletCreated");
+      const walletAddr = event.args.wallet;
+      // we test that the wallet is at the correct address
+      assert.equal(futureAddr, walletAddr, "should have the correct address");
+
+      const isSecurityEnabled = await guardianStorage.isSecurityEnabled(walletAddr);
+      assert.equal(isSecurityEnabled, false, "security should be disabled when guardian is zero");
     });
 
     it("should let anyone (possessing the right signature) create a wallet with the correct (owner, modules, guardian) properties", async () => {
@@ -363,13 +386,13 @@ contract("WalletFactory", (accounts) => {
       );
     });
 
-    it("should fail to create when the guardian is empty", async () => {
-      const salt = utils.generateSaltValue();
-      await truffleAssert.reverts(
-        factory.createCounterfactualWallet(owner, modules, ZERO_ADDRESS, salt, 0, ZERO_ADDRESS, ZERO_BYTES, "0x"),
-        "WF: empty guardian",
-      );
-    });
+    // it("should fail to create when the guardian is empty", async () => {
+    //   const salt = utils.generateSaltValue();
+    //   await truffleAssert.reverts(
+    //     factory.createCounterfactualWallet(owner, modules, ZERO_ADDRESS, salt, 0, ZERO_ADDRESS, ZERO_BYTES, "0x"),
+    //     "WF: empty guardian",
+    //   );
+    // });
 
     it("should fail to create when the owner is the guardian", async () => {
       const salt = utils.generateSaltValue();
@@ -404,13 +427,13 @@ contract("WalletFactory", (accounts) => {
       assert.equal(event.args.sender, "0x0000000000000000000000000000000000000000", "sender should be address(0)");
     });
 
-    it("should fail to get an address when the guardian is empty", async () => {
-      const salt = utils.generateSaltValue();
-      await truffleAssert.reverts(
-        factory.getAddressForCounterfactualWallet(owner, modules, ZERO_ADDRESS, salt),
-        "WF: empty guardian",
-      );
-    });
+    // it("should fail to get an address when the guardian is empty", async () => {
+    //   const salt = utils.generateSaltValue();
+    //   await truffleAssert.reverts(
+    //     factory.getAddressForCounterfactualWallet(owner, modules, ZERO_ADDRESS, salt),
+    //     "WF: empty guardian",
+    //   );
+    // });
   });
 
   describe("Managed-like contract logic", () => {

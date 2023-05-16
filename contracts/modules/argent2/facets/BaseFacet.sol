@@ -77,10 +77,21 @@ contract BaseFacet {
         _;
     }
 
+    modifier onlyWhenSecurityEnabled(address _wallet) {
+        require(LibBaseModule._guardianStorage().isSecurityEnabled(_wallet), "BM: security must be enabled");
+        _;
+    }
+
+    modifier notWhenSecurityEnabled(address _wallet) {
+        require(!LibBaseModule._guardianStorage().isSecurityEnabled(_wallet), "BM: security enabled");
+        _;
+    }
+
+
     function _clearSession(address _wallet) internal {
         LibBaseModule._clearSession(_wallet);
     }
-    
+
     /**
      * @notice Helper method to check if an address is the owner of a target wallet.
      * @param _wallet The target wallet.
@@ -104,6 +115,14 @@ contract BaseFacet {
      */
     function _isSelf(address _addr) internal view returns (bool) {
         return _addr == address(this);
+    }
+
+    /**
+     * @notice Helper method to check if a wallet's security features are enabled.
+     * @param _wallet The target wallet.
+     */
+    function _isSecurityEnabled(address _wallet) internal view returns (bool) {
+        return LibBaseModule._guardianStorage().isSecurityEnabled(_wallet);
     }
 
     /**

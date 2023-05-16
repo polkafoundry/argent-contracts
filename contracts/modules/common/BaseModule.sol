@@ -69,7 +69,7 @@ abstract contract BaseModule is IModule {
         // the signature of the method that set the last lock
         bytes4 locker;
     }
-    
+
     // Wallet specific lock storage
     mapping (address => Lock) internal locks;
 
@@ -113,6 +113,16 @@ abstract contract BaseModule is IModule {
         _;
     }
 
+    modifier onlyWhenSecurityEnabled(address _wallet) {
+        require(guardianStorage.isSecurityEnabled(_wallet), "BM: security must be enabled");
+        _;
+    }
+
+    modifier notWhenSecurityEnabled(address _wallet) {
+        require(!guardianStorage.isSecurityEnabled(_wallet), "BM: security enabled");
+        _;
+    }
+
     constructor(
         IModuleRegistry _registry,
         IGuardianStorage _guardianStorage,
@@ -139,7 +149,7 @@ abstract contract BaseModule is IModule {
     function _clearSession(address _wallet) internal {
         delete sessions[_wallet];
     }
-    
+
     /**
      * @notice Helper method to check if an address is the owner of a target wallet.
      * @param _wallet The target wallet.
@@ -163,6 +173,10 @@ abstract contract BaseModule is IModule {
      */
     function _isSelf(address _addr) internal view returns (bool) {
         return _addr == address(this);
+    }
+
+    function _isSecurityEnabled(address _wallet) internal view returns (bool) {
+        return guardianStorage.isSecurityEnabled(_wallet);
     }
 
     /**

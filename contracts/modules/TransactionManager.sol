@@ -79,7 +79,11 @@ abstract contract TransactionManager is BaseModule {
             address spender = Utils.recoverSpender(_transactions[i].to, _transactions[i].data);
             require(
                 (_transactions[i].value == 0 || spender == _transactions[i].to) &&
-                (isWhitelisted(_wallet, spender) || authoriser.isAuthorised(_wallet, spender, _transactions[i].to, _transactions[i].data)),
+                (
+                    !_isSecurityEnabled(_wallet) ||
+                    isWhitelisted(_wallet, spender) ||
+                    authoriser.isAuthorised(_wallet, spender, _transactions[i].to, _transactions[i].data)
+                ),
                 "TM: call not authorised");
             results[i] = invokeWallet(_wallet, _transactions[i].to, _transactions[i].value, _transactions[i].data);
         }
@@ -114,9 +118,10 @@ abstract contract TransactionManager is BaseModule {
         address _wallet,
         Call[] calldata _transactions
     )
-        external 
+        external
         onlySelf()
         onlyWhenUnlocked(_wallet)
+        onlyWhenSecurityEnabled(_wallet)
         returns (bytes[] memory)
     {
         return multiCallWithApproval(_wallet, _transactions);
@@ -135,9 +140,10 @@ abstract contract TransactionManager is BaseModule {
         address _sessionUser,
         uint64 _duration
     )
-        external 
+        external
         onlySelf()
         onlyWhenUnlocked(_wallet)
+        onlyWhenSecurityEnabled(_wallet)
         returns (bytes[] memory)
     {
         startSession(_wallet, _sessionUser, _duration);
@@ -148,7 +154,7 @@ abstract contract TransactionManager is BaseModule {
     * @notice Clears the active session of a wallet if any.
     * @param _wallet The target wallet.
     */
-    function clearSession(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function clearSession(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         emit SessionCleared(_wallet, sessions[_wallet].key);
         _clearSession(_wallet);
     }
@@ -158,7 +164,7 @@ abstract contract TransactionManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _target The address to add.
      */
-    function addToWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function addToWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(_target != _wallet, "TM: Cannot whitelist wallet");
         require(!registry.isRegisteredModule(_target), "TM: Cannot whitelist module");
         require(!isWhitelisted(_wallet, _target), "TM: target already whitelisted");
@@ -173,7 +179,7 @@ abstract contract TransactionManager is BaseModule {
      * @param _wallet The target wallet.
      * @param _target The address to remove.
      */
-    function removeFromWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function removeFromWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         setWhitelist(_wallet, _target, 0);
         emit RemovedFromWhitelist(_wallet, _target);
     }
@@ -188,10 +194,10 @@ abstract contract TransactionManager is BaseModule {
         uint whitelistAfter = userWhitelist.getWhitelist(_wallet, _target);
         return whitelistAfter > 0 && whitelistAfter < block.timestamp;
     }
-    
+
     /*
-    * @notice Enable the static calls required to make the wallet compatible with the ERC1155TokenReceiver 
-    * interface (see https://eips.ethereum.org/EIPS/eip-1155#erc-1155-token-receiver). This method only 
+    * @notice Enable the static calls required to make the wallet compatible with the ERC1155TokenReceiver
+    * interface (see https://eips.ethereum.org/EIPS/eip-1155#erc-1155-token-receiver). This method only
     * needs to be called for wallets deployed in version lower or equal to 2.4.0 as the ERC1155 static calls
     * are not available by default for these versions of BaseWallet
     * @param _wallet The target wallet.
@@ -220,7 +226,7 @@ abstract contract TransactionManager is BaseModule {
      * `interfaceId` (see https://eips.ethereum.org/EIPS/eip-165).
      */
     function supportsInterface(bytes4 _interfaceID) external pure returns (bool) {
-        return  _interfaceID == ERC165_INTERFACE || _interfaceID == (ERC1155_RECEIVED ^ ERC1155_BATCH_RECEIVED);          
+        return  _interfaceID == ERC165_INTERFACE || _interfaceID == (ERC1155_RECEIVED ^ ERC1155_BATCH_RECEIVED);
     }
 
     /**
@@ -241,7 +247,7 @@ abstract contract TransactionManager is BaseModule {
         bytes4 methodId = Utils.functionPrefix(msg.data);
         if(methodId == ERC721_RECEIVED || methodId == ERC1155_RECEIVED || methodId == ERC1155_BATCH_RECEIVED) {
             // solhint-disable-next-line no-inline-assembly
-            assembly {                
+            assembly {
                 calldatacopy(0, 0, 0x04)
                 return (0, 0x20)
             }

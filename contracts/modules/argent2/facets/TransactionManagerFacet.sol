@@ -67,6 +67,7 @@ contract TransactionManagerFacet is BaseFacet {
             require(
                 (_transactions[i].value == 0 || spender == _transactions[i].to) &&
                 (
+                    !_isSecurityEnabled(_wallet) ||
                     isWhitelisted(_wallet, spender) ||
                     LibBaseModule._authoriser().isAuthorised(_wallet, spender, _transactions[i].to, _transactions[i].data)
                 ),
@@ -89,6 +90,7 @@ contract TransactionManagerFacet is BaseFacet {
         external
         onlySelf()
         onlyWhenUnlocked(_wallet)
+        onlyWhenSecurityEnabled(_wallet)
         returns (bytes[] memory)
     {
         return multiCallWithApproval(_wallet, _transactions);
@@ -104,9 +106,10 @@ contract TransactionManagerFacet is BaseFacet {
         address _wallet,
         Call[] calldata _transactions
     )
-        external 
+        external
         onlySelf()
         onlyWhenUnlocked(_wallet)
+        onlyWhenSecurityEnabled(_wallet)
         returns (bytes[] memory)
     {
         return multiCallWithApproval(_wallet, _transactions);
@@ -125,9 +128,10 @@ contract TransactionManagerFacet is BaseFacet {
         address _sessionUser,
         uint64 _duration
     )
-        external 
+        external
         onlySelf()
         onlyWhenUnlocked(_wallet)
+        onlyWhenSecurityEnabled(_wallet)
         returns (bytes[] memory)
     {
         startSession(_wallet, _sessionUser, _duration);
@@ -138,7 +142,7 @@ contract TransactionManagerFacet is BaseFacet {
     * @notice Clears the active session of a wallet if any.
     * @param _wallet The target wallet.
     */
-    function clearSession(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function clearSession(address _wallet) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         emit SessionCleared(_wallet, LibBaseModule._getSession(_wallet).key);
         _clearSession(_wallet);
     }
@@ -148,7 +152,7 @@ contract TransactionManagerFacet is BaseFacet {
      * @param _wallet The target wallet.
      * @param _target The address to add.
      */
-    function addToWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function addToWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         require(_target != _wallet, "TM: Cannot whitelist wallet");
         require(!LibBaseModule._registry().isRegisteredModule(_target), "TM: Cannot whitelist module");
         require(!isWhitelisted(_wallet, _target), "TM: target already whitelisted");
@@ -163,7 +167,7 @@ contract TransactionManagerFacet is BaseFacet {
      * @param _wallet The target wallet.
      * @param _target The address to remove.
      */
-    function removeFromWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) {
+    function removeFromWhitelist(address _wallet, address _target) external onlyWalletOwnerOrSelf(_wallet) onlyWhenUnlocked(_wallet) onlyWhenSecurityEnabled(_wallet) {
         setWhitelist(_wallet, _target, 0);
         emit RemovedFromWhitelist(_wallet, _target);
     }
@@ -178,10 +182,10 @@ contract TransactionManagerFacet is BaseFacet {
         uint whitelistAfter = LibBaseModule._userWhitelist().getWhitelist(_wallet, _target);
         return whitelistAfter > 0 && whitelistAfter < block.timestamp;
     }
-    
+
     /*
-    * @notice Enable the static calls required to make the wallet compatible with the ERC1155TokenReceiver 
-    * interface (see https://eips.ethereum.org/EIPS/eip-1155#erc-1155-token-receiver). This method only 
+    * @notice Enable the static calls required to make the wallet compatible with the ERC1155TokenReceiver
+    * interface (see https://eips.ethereum.org/EIPS/eip-1155#erc-1155-token-receiver). This method only
     * needs to be called for wallets deployed in version lower or equal to 2.4.0 as the ERC1155 static calls
     * are not available by default for these versions of BaseWallet
     * @param _wallet The target wallet.
@@ -220,7 +224,7 @@ contract TransactionManagerFacet is BaseFacet {
         bytes4 methodId = Utils.functionPrefix(msg.data);
         if(methodId == ERC721_RECEIVED || methodId == ERC1155_RECEIVED || methodId == ERC1155_BATCH_RECEIVED) {
             // solhint-disable-next-line no-inline-assembly
-            assembly {                
+            assembly {
                 calldatacopy(0, 0, 0x04)
                 return (0, 0x20)
             }
@@ -255,5 +259,5 @@ contract TransactionManagerFacet is BaseFacet {
     function setWhitelist(address _wallet, address _target, uint256 _whitelistAfter) internal {
         LibBaseModule._userWhitelist().setWhitelist(_wallet, _target, _whitelistAfter);
     }
-    
+
 }
