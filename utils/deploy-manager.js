@@ -61,7 +61,7 @@ module.exports = {
     }
 
     // setting backend account and multi-sig owner for environments not managed on S3
-    if (network === "development") {
+    if (network === "development" || network === "firebird") {
       configurator.updateBackendAccounts([deploymentAccount]);
       configurator.updateMultisigOwner([deploymentAccount]);
     }

@@ -58,6 +58,11 @@ module.exports = {
       network_id: process.env.PRIVATE_NETWORK_ID
     },
 
+    firebird: {
+      provider: () => new HDWalletProvider(process.env.FIREBIRD_NETWORK_MNEMONIC, process.env.FIREBIRD_NETWORK_URL),
+      network_id: process.env.FIREBIRD_NETWORK_ID
+    },
+
     dev: {
       provider: () => new AWSWalletProvider(
         `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
